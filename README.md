@@ -6,4 +6,4 @@ Educational NES emulator in Rust. Based on [Rafael Bagmanov's ebook](https://bug
 * [6502 ASM ebook](https://skilldrick.github.io/easy6502/)
 * [Nesdev Wiki](https://wiki.nesdev.com/w/index.php/Nesdev_Wiki)
 * [Python NES emulator](https://github.com/dario-santos/Nintendo-emulator)
-
+* [Addressing modes](https://skilldrick.github.io/easy6502/#addressing)
