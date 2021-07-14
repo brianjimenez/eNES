@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 use crate::opcodes;
 
+const STACK: u16 = 0x0100;
+const STACK_RESET: u8 = 0xFD;
+
 pub struct CPU {
     pub register_a: u8,
     pub register_x: u8,
     pub register_y: u8,
     pub status: u8,
     pub program_counter: u16,
+    pub stack_pointer: u8,
     memory: [u8; 0xFFFF]
 }
 
@@ -63,7 +67,8 @@ impl CPU {
             register_y: 0,
             status: 0,
             program_counter: 0,
-            memory: [0; 0xFFFF]
+            stack_pointer: STACK_RESET,
+            memory: [0; 0xFFFF],
         }
     }
 
@@ -127,7 +132,8 @@ impl CPU {
         self.register_x = 0;
         self.register_y = 0;
         self.status = 0;
-
+        self.memory = [0; 0xFFFF];
+        self.stack_pointer = STACK_RESET;
         self.program_counter = self.mem_read_u16(0xFFFC);
     }
 
@@ -142,11 +148,37 @@ impl CPU {
         self.run()
     }
 
+    /* Stack logic */
+    fn stack_pop(&mut self) -> u8 {
+        self.stack_pointer = self.stack_pointer.wrapping_add(1);
+        self.mem_read((STACK as u16) + self.stack_pointer as u16)
+    }
+
+    fn stack_push(&mut self, data: u8) {
+        self.mem_write((STACK as u16) + self.stack_pointer as u16, data);
+        self.stack_pointer = self.stack_pointer.wrapping_sub(1)
+    }
+
+    fn stack_push_u16(&mut self, data: u16) {
+        let hi = (data >> 8) as u8;
+        let lo = (data & 0xff) as u8;
+        self.stack_push(hi);
+        self.stack_push(lo);
+    }
+
+    fn stack_pop_u16(&mut self) -> u16 {
+        let lo = self.stack_pop() as u16;
+        let hi = self.stack_pop() as u16;
+
+        hi << 8 | lo
+    }
+
     pub fn run(&mut self) {
         let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
 
         loop {
             let code = self.mem_read(self.program_counter);
+            println!("Opcode: {}", code);
             self.program_counter += 1;
             let program_counter_state = self.program_counter;
 
@@ -161,6 +193,13 @@ impl CPU {
                 /* STA */
                 0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.mode);
+                }
+
+                /* JSR */
+                0x20 => {
+                    self.stack_push_u16(self.program_counter + 2 - 1);
+                    let target_address = self.mem_read_u16(self.program_counter);
+                    self.program_counter = target_address
                 }
 
                 0xAA => self.tax(),
