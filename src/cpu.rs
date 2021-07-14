@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use crate::opcodes;
 
 pub struct CPU {
     pub register_a: u8,
@@ -141,25 +143,34 @@ impl CPU {
     }
 
     pub fn run(&mut self) {
-        loop {
-            let opscode = self.mem_read(self.program_counter);
-            self.program_counter += 1;
+        let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
 
-            match opscode {
-                0xA9 => {
-                    self.lda(&AddressingMode::Immediate);
-                    self.program_counter +=1;
+        loop {
+            let code = self.mem_read(self.program_counter);
+            self.program_counter += 1;
+            let program_counter_state = self.program_counter;
+
+            let opcode = opcodes.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
+
+            match code {
+                /* LDA */
+                0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
+                    self.lda(&opcode.mode);
                 }
-                0xAA => {
-                    self.tax();
+
+                /* STA */
+                0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
+                    self.sta(&opcode.mode);
                 }
-                0xE8 => {
-                    self.inx();
-                }
-                0x00 => {
-                    return;
-                }
-                _ => todo!()
+
+                0xAA => self.tax(),
+                0xE8 => self.inx(),
+                0x00 => return,
+                _ => todo!(),
+            }
+
+            if program_counter_state == self.program_counter {
+                self.program_counter += (opcode.len - 1) as u16;
             }
         }
     }
@@ -170,6 +181,11 @@ impl CPU {
 
         self.register_a = value;
         self.update_zero_and_negative_flags(self.register_a);
+    }
+
+    fn sta(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        self.mem_write(addr, self.register_a);
     }
 
     fn tax(&mut self) {
@@ -215,7 +231,9 @@ mod test {
     #[test]
     fn test_0xa9_lda_immediate_load_data() {
         let mut cpu = CPU::new();
+
         cpu.load_and_run(vec![0xa9, 0x05, 0x00]);
+
         assert_eq!(cpu.register_a, 0x05);
         assert!(cpu.status & 0b0000_0010 == 0b00);
         assert!(cpu.status & 0b1000_0000 == 0);
@@ -224,7 +242,9 @@ mod test {
     #[test]
     fn test_0xa9_lda_zero_flag() {
         let mut cpu = CPU::new();
+
         cpu.load_and_run(vec![0xa9, 0x00, 0x00]);
+
         assert!(cpu.status & 0b0000_0010 == 0b10);
     }
 
@@ -232,6 +252,7 @@ mod test {
     fn test_0xaa_tax_move_a_to_x() {
         let mut cpu = CPU::new();
         cpu.register_a = 10;
+
         cpu.load_and_run(vec![0xa9, 0x0A, 0xaa, 0x00]);
 
         assert_eq!(cpu.register_x, 10)
@@ -249,7 +270,19 @@ mod test {
     fn test_inx_overflow() {
         let mut cpu = CPU::new();
         cpu.register_x = 0xff;
+
         cpu.load_and_run(vec![0xa9, 0xff, 0xaa, 0xe8, 0xe8, 0x00]);
+
         assert_eq!(cpu.register_x, 1)
+    }
+
+    #[test]
+    fn test_lda_from_memory() {
+        let mut cpu = CPU::new();
+        cpu.mem_write(0x10, 0x55);
+
+        cpu.load_and_run(vec![0xa5, 0x10, 0x00]);
+
+        assert_eq!(cpu.register_a, 0x55);
     }
 }
