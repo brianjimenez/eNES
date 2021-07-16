@@ -45,6 +45,8 @@ lazy_static! {
         OpCode::new(0x81, "STA", 2, 6, AddressingMode::Indirect_X),
         OpCode::new(0x91, "STA", 2, 6, AddressingMode::Indirect_Y),
 
+        OpCode::new(0x69, "ADC", 2, 2, AddressingMode::Immediate),
+
         /* Branching */
         OpCode::new(0x20, "JSR", 3, 6, AddressingMode::Absolute),
     ];

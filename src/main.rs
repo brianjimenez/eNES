@@ -5,7 +5,7 @@ pub mod opcodes;
 extern crate lazy_static;
 
 fn main() {
-    println!("Loading eNES emulator");
+    println!("eNES emulator");
 
     let mut nes_cpu = cpu::CPU::new();
 
@@ -32,6 +32,5 @@ fn main() {
         0xea, 0xca, 0xd0, 0xfb, 0x60
     ];
 
-    println!("Running game!");
     nes_cpu.load_and_run(game_code);
 }

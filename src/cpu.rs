@@ -51,6 +51,7 @@ trait Mem {
 
 impl Mem for CPU {
     fn mem_read(&self, addr: u16) -> u8 {
+        //println!("mem_read: {:#04x}", addr);
         self.memory[addr as usize]
     }
 
@@ -127,18 +128,45 @@ impl CPU {
        }
    }
 
+   /* Stack logic */
+   fn stack_pop(&mut self) -> u8 {
+       self.stack_pointer = self.stack_pointer.wrapping_add(1);
+       self.mem_read((STACK as u16) + self.stack_pointer as u16)
+   }
+
+   fn stack_push(&mut self, data: u8) {
+       self.mem_write((STACK as u16) + self.stack_pointer as u16, data);
+       self.stack_pointer = self.stack_pointer.wrapping_sub(1)
+   }
+
+   fn stack_push_u16(&mut self, data: u16) {
+       let hi = (data >> 8) as u8;
+       let lo = (data & 0xff) as u8;
+       self.stack_push(hi);
+       self.stack_push(lo);
+   }
+
+   fn stack_pop_u16(&mut self) -> u16 {
+       let lo = self.stack_pop() as u16;
+       let hi = self.stack_pop() as u16;
+
+       hi << 8 | lo
+   }
+
     pub fn reset(&mut self) {
         self.register_a = 0;
         self.register_x = 0;
         self.register_y = 0;
         self.status = 0;
-        self.memory = [0; 0xFFFF];
+        //self.memory = [0; 0xFFFF];
         self.stack_pointer = STACK_RESET;
         self.program_counter = self.mem_read_u16(0xFFFC);
+        //println!("PC after reset is: {:#04x}", self.program_counter);
     }
 
     pub fn load(&mut self, program: Vec<u8>) {
         self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
+        //println!("Memory first position: [{:#04x}]", self.memory[0x8000]);
         self.mem_write_u16(0xFFFC, 0x8000);
     }
 
@@ -148,37 +176,12 @@ impl CPU {
         self.run()
     }
 
-    /* Stack logic */
-    fn stack_pop(&mut self) -> u8 {
-        self.stack_pointer = self.stack_pointer.wrapping_add(1);
-        self.mem_read((STACK as u16) + self.stack_pointer as u16)
-    }
-
-    fn stack_push(&mut self, data: u8) {
-        self.mem_write((STACK as u16) + self.stack_pointer as u16, data);
-        self.stack_pointer = self.stack_pointer.wrapping_sub(1)
-    }
-
-    fn stack_push_u16(&mut self, data: u16) {
-        let hi = (data >> 8) as u8;
-        let lo = (data & 0xff) as u8;
-        self.stack_push(hi);
-        self.stack_push(lo);
-    }
-
-    fn stack_pop_u16(&mut self) -> u16 {
-        let lo = self.stack_pop() as u16;
-        let hi = self.stack_pop() as u16;
-
-        hi << 8 | lo
-    }
-
     pub fn run(&mut self) {
         let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
 
         loop {
             let code = self.mem_read(self.program_counter);
-            println!("Opcode: {}", code);
+            println!("PC: {:#04x}  |  Opcode: {:#04x}", self.program_counter, code);
             self.program_counter += 1;
             let program_counter_state = self.program_counter;
 
@@ -199,7 +202,12 @@ impl CPU {
                 0x20 => {
                     self.stack_push_u16(self.program_counter + 2 - 1);
                     let target_address = self.mem_read_u16(self.program_counter);
-                    self.program_counter = target_address
+                    self.program_counter = target_address;
+                }
+
+                /* ADC */
+                0x69 => {
+                    self.adc(&opcode.mode);
                 }
 
                 0xAA => self.tax(),
@@ -219,6 +227,15 @@ impl CPU {
         let value = self.mem_read(addr);
 
         self.register_a = value;
+        self.update_zero_and_negative_flags(self.register_a);
+    }
+
+    fn adc(&mut self, mode: &AddressingMode) {
+        // TODO
+        let addr = self.get_operand_address(&mode);
+        let value = self.mem_read(addr);
+
+        self.register_a = self.register_a.wrapping_add(value);
         self.update_zero_and_negative_flags(self.register_a);
     }
 
@@ -324,4 +341,47 @@ mod test {
 
         assert_eq!(cpu.register_a, 0x55);
     }
+
+    #[test]
+    fn test_easy_6502_first_program() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![0xa9, 0x01, 0x8d, 0x00, 0x02, 0xa9, 0x05, 0x8d,
+            0x01, 0x02, 0xa9, 0x08, 0x8d, 0x02, 0x02]);
+
+        assert_eq!(cpu.program_counter, 32784);
+        assert_eq!(cpu.register_x, 0x00);
+        assert_eq!(cpu.register_y, 0x00);
+        assert_eq!(cpu.register_a, 0x08);
+    }
+
+    #[test]
+    fn test_easy_6502_second_program() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![0xa9, 0xc0, 0xaa, 0xe8, 0x69, 0xc4, 0x00]);
+
+        assert_eq!(cpu.program_counter, 32775);
+        assert_eq!(cpu.register_x, 193);
+        assert_eq!(cpu.register_y, 0x00);
+        assert_eq!(cpu.register_a, 132);
+
+        assert_eq!(cpu.status, 0b10110001);
+    }
+
+    /*
+    #[test]
+    fn test_jsr() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![0x20, 0x09, 0x06, 0x20, 0x0c, 0x06, 0x20, 0x12, 0x06, 0xa2,
+            0x00, 0x60, 0xe8, 0xe0, 0x05, 0xd0, 0xfb, 0x60, 0x00]);
+
+        assert_eq!(cpu.register_x, 0x05);
+        assert_eq!(cpu.register_y, 0x00);
+        assert_eq!(cpu.register_a, 0x00);
+        assert_eq!(cpu.stack_pointer, 0xfd);
+        assert_eq!(cpu.program_counter, 0x0613);
+    }
+    */
 }
