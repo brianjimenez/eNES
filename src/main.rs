@@ -32,5 +32,7 @@ fn main() {
         0xea, 0xca, 0xd0, 0xfb, 0x60
     ];
 
-    nes_cpu.load_and_run(game_code);
+    nes_cpu.load_in(0x0600, game_code);
+    nes_cpu.reset();
+    nes_cpu.run()
 }

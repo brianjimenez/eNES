@@ -161,13 +161,16 @@ impl CPU {
         //self.memory = [0; 0xFFFF];
         self.stack_pointer = STACK_RESET;
         self.program_counter = self.mem_read_u16(0xFFFC);
-        //println!("PC after reset is: {:#04x}", self.program_counter);
     }
 
     pub fn load(&mut self, program: Vec<u8>) {
         self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
-        //println!("Memory first position: [{:#04x}]", self.memory[0x8000]);
         self.mem_write_u16(0xFFFC, 0x8000);
+    }
+
+    pub fn load_in(&mut self, addr: u16, program: Vec<u8>) {
+        self.memory[addr as usize .. (addr + (program.len() as u16)) as usize].copy_from_slice(&program[..]);
+        self.mem_write_u16(0xFFFC, addr);
     }
 
     pub fn load_and_run(&mut self, program: Vec<u8>) {
@@ -181,7 +184,8 @@ impl CPU {
 
         loop {
             let code = self.mem_read(self.program_counter);
-            println!("PC: {:#04x}  |  Opcode: {:#04x}", self.program_counter, code);
+            println!("> PC: {:#04x}  |  Opcode: {:#04x}  |  SP: {:#04x}  |  A: {:#04x}  |  X: {:#04x}  |  Y: {:#04x}",
+                self.program_counter, code, self.stack_pointer, self.register_a, self.register_x, self.register_y);
             self.program_counter += 1;
             let program_counter_state = self.program_counter;
 
