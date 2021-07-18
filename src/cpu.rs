@@ -206,7 +206,7 @@ impl CPU {
                 }
 
                 /* ADC */
-                0x69 => {
+                0x69 | 0x65 | 0x75 | 0x6D | 0x7D | 0x79 | 0x61 | 0x71 => {
                     self.adc(&opcode.mode);
                 }
 
@@ -402,7 +402,21 @@ mod test {
         assert_eq!(cpu.register_y, 0x00);
         assert_eq!(cpu.register_a, 132);
 
-        assert_eq!(cpu.status, 0b10110001);
+        assert_eq!(cpu.status, 0b1011_0001);
+    }
+
+    #[test]
+    fn test_easy_6502_adc() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![0xa9, 0x80, 0x85, 0x01, 0x65, 0x01]);
+
+        assert_eq!(cpu.program_counter, 32775);
+        assert_eq!(cpu.register_x, 0x00);
+        assert_eq!(cpu.register_y, 0x00);
+        assert_eq!(cpu.register_a, 0x00);
+
+        assert_eq!(cpu.status, 0b0111_0011);
     }
 
     /*
