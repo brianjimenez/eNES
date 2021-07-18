@@ -258,6 +258,29 @@ impl CPU {
                     return
                 }
 
+                /* Flags */
+                0xd8 => {
+                    self.status &= 0b1111_0111;
+                }
+                0x58 => {
+                    self.status &= 0b1111_1011;
+                }
+                0xb8 => {
+                    self.status &= 0b1011_1111;
+                }
+                0x18 => {
+                    self.status &= 0b1111_1110;
+                }
+                0x38 => {
+                    self.status |= 0b0000_0001;
+                }
+                0x78 => {
+                    self.status |= 0b0000_0100;
+                }
+                0xf8 => {
+                    self.status |= 0b0000_1000;
+                }
+
                 _ => todo!(),
             }
 
@@ -280,15 +303,15 @@ impl CPU {
         // V - Overflow Flag
         // N - Negative Flag
         if result == 0 {
-            self.status = self.status | 0b0000_0010;
+            self.status |= 0b0000_0010;
         } else {
-            self.status = self.status & 0b1111_1101;
+            self.status &= 0b1111_1101;
         }
 
         if result & 0b1000_0000 != 0 {
-            self.status = self.status | 0b1000_0000;
+            self.status |= 0b1000_0000;
         } else {
-            self.status = self.status & 0b0111_1111;
+            self.status &= 0b0111_1111;
         }
     }
 
@@ -309,17 +332,17 @@ impl CPU {
         let carry = sum > 0xff;
 
         if carry {
-            self.status = self.status | 0b0000_0001;
+            self.status |= 0b0000_0001;
         } else {
-            self.status = self.status & 0b1111_1110;
+            self.status &= 0b1111_1110;
         }
 
         let result = sum as u8;
 
         if (data ^ result) & (result ^ self.register_a) & 0x80 != 0 {
-            self.status = self.status | 0b0100_0000;
+            self.status |= 0b0100_0000;
         } else {
-            self.status = self.status & 0b1011_1111;
+            self.status &= 0b1011_1111;
         }
 
          self.set_register_a(result);
@@ -329,9 +352,9 @@ impl CPU {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
         if data <= compare_with {
-            self.status = self.status | 0b0000_0001;
+            self.status |= 0b0000_0001;
         } else {
-            self.status = self.status & 0b1111_1110;
+            self.status &= 0b1111_1110;
         }
 
         self.update_zero_and_negative_flags(compare_with.wrapping_sub(data));
