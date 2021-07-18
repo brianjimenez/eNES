@@ -222,6 +222,10 @@ impl CPU {
                     let target_address = self.mem_read_u16(self.program_counter);
                     self.program_counter = target_address;
                 }
+                /* RTS */
+                0x60 => {
+                    self.program_counter = self.stack_pop_u16() + 1;
+                }
 
                 /* ADC */
                 0x69 | 0x65 | 0x75 | 0x6D | 0x7D | 0x79 | 0x61 | 0x71 => {
