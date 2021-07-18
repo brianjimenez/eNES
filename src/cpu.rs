@@ -232,6 +232,11 @@ impl CPU {
                     self.adc(&opcode.mode);
                 }
 
+                /* AND */
+                0x29 | 0x25 | 0x35 | 0x2d | 0x3d | 0x39 | 0x21 | 0x31 => {
+                    self.and(&opcode.mode);
+                }
+
                 /* BNE */
                 0xD0 => {
                     if self.status & 0b0000_0010 == 0 {
@@ -373,6 +378,12 @@ impl CPU {
 
     fn brk(&mut self) {
         self.status = self.status | 0b0011_0000;
+    }
+
+    fn and(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        self.set_register_a(data & self.register_a);
     }
 }
 
