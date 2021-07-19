@@ -14,6 +14,20 @@ pub struct CPU {
     memory: [u8; 0xFFFF]
 }
 
+#[non_exhaustive]
+struct CpuFlags;
+
+#[allow(dead_code)]
+impl CpuFlags {
+    pub const CARRY: u8     = 0b0000_0001;
+    pub const ZERO: u8      = 0b0000_0010;
+    pub const INTERRUPT: u8 = 0b0000_0100;
+    pub const DECIMAL: u8   = 0b0000_1000;
+    pub const BREAK: u8     = 0b0001_0000;
+    pub const BREAK2: u8    = 0b0010_0000;
+    pub const OVERFLOW: u8  = 0b0100_0000;
+    pub const NEGATIVE: u8  = 0b1000_0000;
+}
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
@@ -299,13 +313,13 @@ impl CPU {
                     self.status &= 0b1111_1110;
                 }
                 0x38 => {
-                    self.status |= 0b0000_0001;
+                    self.status |= CpuFlags::CARRY;
                 }
                 0x78 => {
-                    self.status |= 0b0000_0100;
+                    self.status |= CpuFlags::INTERRUPT;
                 }
                 0xf8 => {
-                    self.status |= 0b0000_1000;
+                    self.status |= CpuFlags::DECIMAL;
                 }
 
                 /* CMP */
