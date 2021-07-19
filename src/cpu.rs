@@ -239,15 +239,42 @@ impl CPU {
 
                 /* BNE */
                 0xD0 => {
-                    if self.status & 0b0000_0010 == 0 {
-                        let jump: i8 = self.mem_read(self.program_counter) as i8;
-                        let jump_addr = self
-                            .program_counter
-                            .wrapping_add(1)
-                            .wrapping_add(jump as u16);
+                    self.branch(self.status & 0b0000_0010 == 0);
+                }
 
-                        self.program_counter = jump_addr;
-                    }
+                /* BVS */
+                0x70 => {
+                    self.branch(self.status & 0b0100_0000 != 0);
+                }
+
+                /* BVC */
+                0x50 => {
+                    self.branch(self.status & 0b0100_0000 == 0);
+                }
+
+                /* BPL */
+                0x10 => {
+                    self.branch(self.status & 0b1000_0000 == 0);
+                }
+
+                /* BMI */
+                0x30 => {
+                    self.branch(self.status & 0b1000_0000 != 0);
+                }
+
+                /* BEQ */
+                0xf0 => {
+                    self.branch(self.status & 0b0000_0010 != 0);
+                }
+
+                /* BCS */
+                0xb0 => {
+                    self.branch(self.status & 0b0000_0001 != 0);
+                }
+
+                /* BCC */
+                0x90 => {
+                    self.branch(self.status & 0b0000_0001 == 0);
                 }
 
                 0xCA => self.dex(),
@@ -363,6 +390,18 @@ impl CPU {
         }
 
         self.update_zero_and_negative_flags(compare_with.wrapping_sub(data));
+    }
+
+    fn branch(&mut self, condition: bool) {
+        if condition {
+            let jump: i8 = self.mem_read(self.program_counter) as i8;
+            let jump_addr = self
+                .program_counter
+                .wrapping_add(1)
+                .wrapping_add(jump as u16);
+
+            self.program_counter = jump_addr;
+        }
     }
 
     fn lda(&mut self, mode: &AddressingMode) {
