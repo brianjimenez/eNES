@@ -17,8 +17,19 @@ pub struct CPU {
 #[non_exhaustive]
 struct CpuFlags;
 
-#[allow(dead_code)]
 impl CpuFlags {
+    // +-+-+-+-+-+-+-+-+
+    // |N|V| |B|D|I|Z|C|
+    // +-+-+-+-+-+-+-+-+
+    //  7 6 5 4 3 2 1 0
+    // C - Carry Flag
+    // Z - Zero Flag
+    // I - Interrupt Disable
+    // D - Decimal Mode
+    // B - Break Command
+    // B2 - Break 2 Command
+    // V - Overflow Flag
+    // N - Negative Flag
     pub const CARRY: u8     = 0b0000_0001;
     pub const ZERO: u8      = 0b0000_0010;
     pub const INTERRUPT: u8 = 0b0000_0100;
@@ -253,42 +264,42 @@ impl CPU {
 
                 /* BNE */
                 0xD0 => {
-                    self.branch(self.status & 0b0000_0010 == 0);
-                }
-
-                /* BVS */
-                0x70 => {
-                    self.branch(self.status & 0b0100_0000 != 0);
-                }
-
-                /* BVC */
-                0x50 => {
-                    self.branch(self.status & 0b0100_0000 == 0);
-                }
-
-                /* BPL */
-                0x10 => {
-                    self.branch(self.status & 0b1000_0000 == 0);
-                }
-
-                /* BMI */
-                0x30 => {
-                    self.branch(self.status & 0b1000_0000 != 0);
+                    self.branch(self.status & CpuFlags::ZERO == 0);
                 }
 
                 /* BEQ */
                 0xf0 => {
-                    self.branch(self.status & 0b0000_0010 != 0);
+                    self.branch(self.status & CpuFlags::ZERO != 0);
+                }
+
+                /* BVS */
+                0x70 => {
+                    self.branch(self.status & CpuFlags::OVERFLOW != 0);
+                }
+
+                /* BVC */
+                0x50 => {
+                    self.branch(self.status & CpuFlags::OVERFLOW == 0);
+                }
+
+                /* BPL */
+                0x10 => {
+                    self.branch(self.status & CpuFlags::NEGATIVE == 0);
+                }
+
+                /* BMI */
+                0x30 => {
+                    self.branch(self.status & CpuFlags::NEGATIVE != 0);
                 }
 
                 /* BCS */
                 0xb0 => {
-                    self.branch(self.status & 0b0000_0001 != 0);
+                    self.branch(self.status & CpuFlags::CARRY != 0);
                 }
 
                 /* BCC */
                 0x90 => {
-                    self.branch(self.status & 0b0000_0001 == 0);
+                    self.branch(self.status & CpuFlags::CARRY == 0);
                 }
 
                 0xCA => self.dex(),
@@ -301,16 +312,16 @@ impl CPU {
 
                 /* Flags */
                 0xd8 => {
-                    self.status &= 0b1111_0111;
+                    self.status &= !CpuFlags::DECIMAL;
                 }
                 0x58 => {
-                    self.status &= 0b1111_1011;
+                    self.status &= !CpuFlags::INTERRUPT;
                 }
                 0xb8 => {
-                    self.status &= 0b1011_1111;
+                    self.status &= !CpuFlags::OVERFLOW;
                 }
                 0x18 => {
-                    self.status &= 0b1111_1110;
+                    self.status &= !CpuFlags::CARRY;
                 }
                 0x38 => {
                     self.status |= CpuFlags::CARRY;
@@ -337,27 +348,16 @@ impl CPU {
     }
 
     fn update_zero_and_negative_flags(&mut self, result: u8) {
-        // +-+-+-+-+-+-+-+-+
-        // |N|V| |B|D|I|Z|C|
-        // +-+-+-+-+-+-+-+-+
-        //  7 6 5 4 3 2 1 0
-        // C - Carry Flag
-        // Z - Zero Flag
-        // I - Interrupt Disable
-        // D - Decimal Mode
-        // B - Break Command
-        // V - Overflow Flag
-        // N - Negative Flag
         if result == 0 {
-            self.status |= 0b0000_0010;
+            self.status |= CpuFlags::ZERO;
         } else {
-            self.status &= 0b1111_1101;
+            self.status &= !CpuFlags::ZERO;
         }
 
-        if result & 0b1000_0000 != 0 {
-            self.status |= 0b1000_0000;
+        if result & CpuFlags::NEGATIVE != 0 {
+            self.status |= CpuFlags::NEGATIVE;
         } else {
-            self.status &= 0b0111_1111;
+            self.status &= !CpuFlags::NEGATIVE;
         }
     }
 
@@ -369,7 +369,7 @@ impl CPU {
     fn add_to_register_a(&mut self, data: u8) {
         let sum = self.register_a as u16
             + data as u16
-            + (if self.status & 0b0000_0001 != 0 {
+            + (if self.status & CpuFlags::CARRY != 0 {
                 1
             } else {
                 0
@@ -378,17 +378,17 @@ impl CPU {
         let carry = sum > 0xff;
 
         if carry {
-            self.status |= 0b0000_0001;
+            self.status |= CpuFlags::CARRY;
         } else {
-            self.status &= 0b1111_1110;
+            self.status &= !CpuFlags::CARRY;
         }
 
         let result = sum as u8;
 
         if (data ^ result) & (result ^ self.register_a) & 0x80 != 0 {
-            self.status |= 0b0100_0000;
+            self.status |= CpuFlags::OVERFLOW;
         } else {
-            self.status &= 0b1011_1111;
+            self.status &= !CpuFlags::OVERFLOW;
         }
 
          self.set_register_a(result);
@@ -398,9 +398,9 @@ impl CPU {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
         if data <= compare_with {
-            self.status |= 0b0000_0001;
+            self.status |= CpuFlags::CARRY;
         } else {
-            self.status &= 0b1111_1110;
+            self.status &= !CpuFlags::CARRY;
         }
 
         self.update_zero_and_negative_flags(compare_with.wrapping_sub(data));
@@ -458,7 +458,7 @@ impl CPU {
     }
 
     fn brk(&mut self) {
-        self.status = self.status | 0b0011_0000;
+        self.status = self.status | CpuFlags::BREAK | CpuFlags::BREAK2;
     }
 
     fn and(&mut self, mode: &AddressingMode) {
