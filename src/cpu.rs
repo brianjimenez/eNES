@@ -304,6 +304,7 @@ impl CPU {
 
                 0xCA => self.dex(),
                 0xAA => self.tax(),
+                0x8A => self.txa(),
                 0xE8 => self.inx(),
                 0x00 => {
                     self.brk();
@@ -450,6 +451,11 @@ impl CPU {
     fn tax(&mut self) {
         self.register_x = self.register_a;
         self.update_zero_and_negative_flags(self.register_x);
+    }
+
+    fn txa(&mut self) {
+        self.register_a = self.register_x;
+        self.update_zero_and_negative_flags(self.register_a);
     }
 
     fn inx(&mut self) {
