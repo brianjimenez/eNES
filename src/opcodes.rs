@@ -25,6 +25,8 @@ impl OpCode {
 lazy_static! {
     pub static ref CPU_OPS_CODES: Vec<OpCode> = vec![
         OpCode::new(0x00, "BRK", 1, 7, AddressingMode::NoneAddressing),
+        OpCode::new(0xea, "NOP", 1, 2, AddressingMode::NoneAddressing),
+
         OpCode::new(0xaa, "TAX", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0xe8, "INX", 1, 2, AddressingMode::NoneAddressing),
 
@@ -43,6 +45,12 @@ lazy_static! {
         OpCode::new(0xae, "LDX", 3, 4, AddressingMode::Absolute),
         OpCode::new(0xbe, "LDX", 3, 4/*+1 if page crossed*/, AddressingMode::Absolute_Y),
 
+        OpCode::new(0xa0, "LDY", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xa4, "LDY", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xb4, "LDY", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0xac, "LDY", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0xbc, "LDY", 3, 4/*+1 if page crossed*/, AddressingMode::Absolute_X),
+
         OpCode::new(0x85, "STA", 2, 3, AddressingMode::ZeroPage),
         OpCode::new(0x95, "STA", 2, 4, AddressingMode::ZeroPage_X),
         OpCode::new(0x8d, "STA", 3, 4, AddressingMode::Absolute),
@@ -55,7 +63,7 @@ lazy_static! {
         OpCode::new(0x96, "STX", 2, 4, AddressingMode::ZeroPage_Y),
         OpCode::new(0x8e, "STX", 3, 4, AddressingMode::Absolute),
 
-         /* Arithmetic */
+        /* Arithmetic */
         OpCode::new(0x69, "ADC", 2, 2, AddressingMode::Immediate),
         OpCode::new(0x65, "ADC", 2, 3, AddressingMode::ZeroPage),
         OpCode::new(0x75, "ADC", 2, 4, AddressingMode::ZeroPage_X),
@@ -101,6 +109,9 @@ lazy_static! {
         OpCode::new(0xb0, "BCS", 2, 2 /*(+1 if branch succeeds +2 if to a new page)*/, AddressingMode::NoneAddressing),
         OpCode::new(0x90, "BCC", 2, 2 /*(+1 if branch succeeds +2 if to a new page)*/, AddressingMode::NoneAddressing),
         OpCode::new(0x10, "BPL", 2, 2 /*(+1 if branch succeeds +2 if to a new page)*/, AddressingMode::NoneAddressing),
+
+        OpCode::new(0x4c, "JMP", 3, 3, AddressingMode::NoneAddressing),
+        OpCode::new(0x6c, "JMP", 3, 5, AddressingMode::NoneAddressing),
 
         /* Flags */
         OpCode::new(0xD8, "CLD", 1, 2, AddressingMode::NoneAddressing),

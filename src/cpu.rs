@@ -227,6 +227,11 @@ impl CPU {
                     self.ldx(&opcode.mode);
                 }
 
+                /* LDY */
+                0xA0 | 0xA4 | 0xB4 | 0xAC | 0xBC => {
+                    self.ldy(&opcode.mode);
+                }
+
                 /* STA */
                 0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.mode);
@@ -357,6 +362,17 @@ impl CPU {
                     self.inc(&opcode.mode);
                 }
 
+                /* JMP */
+                0x4c => {
+                    let mem_address = self.mem_read_u16(self.program_counter);
+                    self.program_counter = mem_address;
+                }
+
+                /* NOP */
+                0xEA => {
+                    // no operation
+                }
+
                 _ => todo!(),
             }
 
@@ -448,6 +464,13 @@ impl CPU {
         let data = self.mem_read(addr);
         self.register_x = data;
         self.update_zero_and_negative_flags(self.register_x);
+    }
+
+    fn ldy(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        self.register_y = data;
+        self.update_zero_and_negative_flags(self.register_y);
     }
 
     fn adc(&mut self, mode: &AddressingMode) {
