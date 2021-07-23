@@ -339,6 +339,14 @@ impl CPU {
                     self.compare(&opcode.mode, self.register_a);
                 }
 
+                /* LSR */
+                0x4A => {
+                    self.lsr_accumulator();
+                }
+                0x46 | 0x56 | 0x4e | 0x5e => {
+                    self.lsr(&opcode.mode);
+                }
+
                 _ => todo!(),
             }
 
@@ -471,6 +479,31 @@ impl CPU {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
         self.set_register_a(data & self.register_a);
+    }
+
+    fn lsr_accumulator(&mut self) {
+        let mut data = self.register_a;
+        if data & 1 == 1 {
+            self.status |= CpuFlags::CARRY;
+        } else {
+            self.status &= !CpuFlags::CARRY;
+        }
+        data = data >> 1;
+        self.set_register_a(data)
+    }
+
+    fn lsr(&mut self, mode: &AddressingMode) -> u8 {
+        let addr = self.get_operand_address(mode);
+        let mut data = self.mem_read(addr);
+        if data & 1 == 1 {
+            self.status |= CpuFlags::CARRY;
+        } else {
+            self.status &= !CpuFlags::CARRY;
+        }
+        data = data >> 1;
+        self.mem_write(addr, data);
+        self.update_zero_and_negative_flags(data);
+        data
     }
 }
 
