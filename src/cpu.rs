@@ -334,6 +334,11 @@ impl CPU {
                     self.status |= CpuFlags::DECIMAL;
                 }
 
+                /* BIT */
+                0x24 | 0x2c => {
+                    self.bit(&opcode.mode);
+                }
+
                 /* CMP */
                 0xc9 | 0xc5 | 0xd5 | 0xcd | 0xdd | 0xd9 | 0xc1 | 0xd1 => {
                     self.compare(&opcode.mode, self.register_a);
@@ -518,6 +523,33 @@ impl CPU {
         self.mem_write(addr, data);
         self.update_zero_and_negative_flags(data);
         data
+    }
+
+    fn bit(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        let and = self.register_a & data;
+
+        // Set ZERO flag
+        if and == 0 {
+            self.status |= CpuFlags::ZERO;
+        } else {
+            self.status &= !CpuFlags::ZERO;
+        }
+
+        // Set NEGATIV flag
+        if data & 0b1000_0000 > 0 {
+            self.status |= CpuFlags::NEGATIVE;
+        } else {
+            self.status &= !CpuFlags::NEGATIVE;
+        }
+
+        // Set OVERFLOW flag
+        if data & 0b0100_0000 > 0 {
+            self.status |= CpuFlags::OVERFLOW;
+        } else {
+            self.status &= !CpuFlags::OVERFLOW;
+        }
     }
 }
 

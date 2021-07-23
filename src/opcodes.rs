@@ -118,6 +118,9 @@ lazy_static! {
         OpCode::new(0x9a, "TXS", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0x98, "TYA", 1, 2, AddressingMode::NoneAddressing),
 
+        OpCode::new(0x24, "BIT", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x2c, "BIT", 3, 4, AddressingMode::Absolute),
+
         /* Shifts */
         OpCode::new(0x4a, "LSR", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0x46, "LSR", 2, 5, AddressingMode::ZeroPage),
