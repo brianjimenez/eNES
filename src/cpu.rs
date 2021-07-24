@@ -1,18 +1,9 @@
 use std::collections::HashMap;
 use crate::opcodes;
+use crate::bus::Bus;
 
 const STACK: u16 = 0x0100;
 const STACK_RESET: u8 = 0xFD;
-
-pub struct CPU {
-    pub register_a: u8,
-    pub register_x: u8,
-    pub register_y: u8,
-    pub status: u8,
-    pub program_counter: u16,
-    pub stack_pointer: u8,
-    memory: [u8; 0xFFFF]
-}
 
 #[non_exhaustive]
 struct CpuFlags;
@@ -74,27 +65,43 @@ pub trait Mem {
     }
 }
 
+pub struct CPU {
+    pub register_a: u8,
+    pub register_x: u8,
+    pub register_y: u8,
+    pub status: u8,
+    pub program_counter: u16,
+    pub stack_pointer: u8,
+    pub bus: Bus,
+}
+
 impl Mem for CPU {
     fn mem_read(&self, addr: u16) -> u8 {
-        //println!("mem_read: {:#04x}", addr);
-        self.memory[addr as usize]
+        self.bus.mem_read(addr)
     }
 
     fn mem_write(&mut self, addr: u16, data: u8) {
-        self.memory[addr as usize] = data;
+        self.bus.mem_write(addr, data)
+    }
+    fn mem_read_u16(&self, pos: u16) -> u16 {
+        self.bus.mem_read_u16(pos)
+    }
+
+    fn mem_write_u16(&mut self, pos: u16, data: u16) {
+        self.bus.mem_write_u16(pos, data)
     }
 }
 
 impl CPU {
-    pub fn new() -> Self {
+    pub fn new(bus: Bus) -> Self {
         CPU {
             register_a: 0,
             register_x: 0,
             register_y: 0,
-            status: 0,
-            program_counter: 0,
             stack_pointer: STACK_RESET,
-            memory: [0; 0xFFFF],
+            program_counter: 0,
+            status: 0,
+            bus: bus,
         }
     }
 
@@ -189,13 +196,10 @@ impl CPU {
     }
 
     pub fn load(&mut self, program: Vec<u8>) {
-        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xFFFC, 0x8000);
-    }
-
-    pub fn load_in(&mut self, addr: u16, program: Vec<u8>) {
-        self.memory[addr as usize .. (addr + (program.len() as u16)) as usize].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xFFFC, addr);
+        for i in 0..(program.len() as u16) {
+            self.mem_write(0x0600 + i, program[i as usize]);
+        }
+        self.mem_write_u16(0xFFFC, 0x0600);
     }
 
     pub fn load_and_run(&mut self, program: Vec<u8>) {
@@ -617,9 +621,13 @@ mod test {
 
     #[test]
     fn test_0xa9_lda_immediate_load_data() {
-        let mut cpu = CPU::new();
+        let bus = Bus::new();
+        let mut cpu = CPU::new(bus);
 
-        cpu.load_and_run(vec![0xa9, 0x05, 0x00]);
+        cpu.load(vec![0xa9, 0x05, 0x00]);
+        cpu.reset();
+        cpu.program_counter = 0x0600;
+        cpu.run();
 
         assert_eq!(cpu.register_a, 0x05);
         assert!(cpu.status & 0b0000_0010 == 0b00);
@@ -628,120 +636,68 @@ mod test {
 
     #[test]
     fn test_0xa9_lda_zero_flag() {
-        let mut cpu = CPU::new();
+        let bus = Bus::new();
+        let mut cpu = CPU::new(bus);
 
-        cpu.load_and_run(vec![0xa9, 0x00, 0x00]);
+        cpu.load(vec![0xa9, 0x00, 0x00]);
+        cpu.reset();
+        cpu.program_counter = 0x0600;
+        cpu.run();
 
         assert!(cpu.status & 0b0000_0010 == 0b10);
     }
 
     #[test]
     fn test_0xaa_tax_move_a_to_x() {
-        let mut cpu = CPU::new();
+        let bus = Bus::new();
+        let mut cpu = CPU::new(bus);
         cpu.register_a = 10;
 
-        cpu.load_and_run(vec![0xa9, 0x0A, 0xaa, 0x00]);
+        cpu.load(vec![0xa9, 0x0A, 0xaa, 0x00]);
+        cpu.reset();
+        cpu.program_counter = 0x0600;
+        cpu.run();
 
         assert_eq!(cpu.register_x, 10)
     }
 
     #[test]
     fn test_5_ops_working_together() {
-        let mut cpu = CPU::new();
-        cpu.load_and_run(vec![0xa9, 0xc0, 0xaa, 0xe8, 0x00]);
+        let bus = Bus::new();
+        let mut cpu = CPU::new(bus);
+        cpu.load(vec![0xa9, 0xc0, 0xaa, 0xe8, 0x00]);
+        cpu.reset();
+        cpu.program_counter = 0x0600;
+        cpu.run();
 
         assert_eq!(cpu.register_x, 0xc1)
     }
 
     #[test]
     fn test_inx_overflow() {
-        let mut cpu = CPU::new();
+        let bus = Bus::new();
+        let mut cpu = CPU::new(bus);
         cpu.register_x = 0xff;
 
-        cpu.load_and_run(vec![0xa9, 0xff, 0xaa, 0xe8, 0xe8, 0x00]);
+        cpu.load(vec![0xa9, 0xff, 0xaa, 0xe8, 0xe8, 0x00]);
+        cpu.reset();
+        cpu.program_counter = 0x0600;
+        cpu.run();
 
         assert_eq!(cpu.register_x, 1)
     }
 
     #[test]
     fn test_lda_from_memory() {
-        let mut cpu = CPU::new();
+        let bus = Bus::new();
+        let mut cpu = CPU::new(bus);
         cpu.mem_write(0x10, 0x55);
 
-        cpu.load_and_run(vec![0xa5, 0x10, 0x00]);
+        cpu.load(vec![0xa5, 0x10, 0x00]);
+        cpu.reset();
+        cpu.program_counter = 0x0600;
+        cpu.run();
 
         assert_eq!(cpu.register_a, 0x55);
     }
-
-    #[test]
-    fn test_easy_6502_first_program() {
-        let mut cpu = CPU::new();
-
-        cpu.load_and_run(vec![0xa9, 0x01, 0x8d, 0x00, 0x02, 0xa9, 0x05, 0x8d,
-            0x01, 0x02, 0xa9, 0x08, 0x8d, 0x02, 0x02]);
-
-        assert_eq!(cpu.program_counter, 32784);
-        assert_eq!(cpu.register_x, 0x00);
-        assert_eq!(cpu.register_y, 0x00);
-        assert_eq!(cpu.register_a, 0x08);
-    }
-
-    #[test]
-    fn test_easy_6502_second_program() {
-        let mut cpu = CPU::new();
-
-        cpu.load_and_run(vec![0xa9, 0xc0, 0xaa, 0xe8, 0x69, 0xc4, 0x00]);
-
-        assert_eq!(cpu.program_counter, 32775);
-        assert_eq!(cpu.register_x, 193);
-        assert_eq!(cpu.register_y, 0x00);
-        assert_eq!(cpu.register_a, 132);
-
-        assert_eq!(cpu.status, 0b1011_0001);
-    }
-
-    #[test]
-    fn test_easy_6502_adc() {
-        let mut cpu = CPU::new();
-
-        cpu.load_and_run(vec![0xa9, 0x80, 0x85, 0x01, 0x65, 0x01]);
-
-        assert_eq!(cpu.program_counter, 32775);
-        assert_eq!(cpu.register_x, 0x00);
-        assert_eq!(cpu.register_y, 0x00);
-        assert_eq!(cpu.register_a, 0x00);
-
-        assert_eq!(cpu.status, 0b0111_0011);
-    }
-
-    #[test]
-    fn test_easy_6502_branching() {
-        let mut cpu = CPU::new();
-
-        cpu.load_and_run(vec![0xa2, 0x08, 0xca, 0x8e, 0x00, 0x02, 0xe0, 0x03,
-            0xd0, 0xf8, 0x8e, 0x01, 0x02, 0x00]);
-
-        assert_eq!(cpu.program_counter, 32782);
-        assert_eq!(cpu.register_x, 0x03);
-        assert_eq!(cpu.register_y, 0x00);
-        assert_eq!(cpu.register_a, 0x00);
-
-        assert_eq!(cpu.status, 0b0011_0011);
-    }
-
-    /*
-    #[test]
-    fn test_jsr() {
-        let mut cpu = CPU::new();
-
-        cpu.load_and_run(vec![0x20, 0x09, 0x06, 0x20, 0x0c, 0x06, 0x20, 0x12, 0x06, 0xa2,
-            0x00, 0x60, 0xe8, 0xe0, 0x05, 0xd0, 0xfb, 0x60, 0x00]);
-
-        assert_eq!(cpu.register_x, 0x05);
-        assert_eq!(cpu.register_y, 0x00);
-        assert_eq!(cpu.register_a, 0x00);
-        assert_eq!(cpu.stack_pointer, 0xfd);
-        assert_eq!(cpu.program_counter, 0x0613);
-    }
-    */
 }

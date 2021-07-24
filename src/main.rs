@@ -1,9 +1,12 @@
 pub mod cpu;
+pub mod bus;
 pub mod opcodes;
 
 use cpu::Mem;
 use cpu::CPU;
 use rand::Rng;
+use bus::Bus;
+
 use sdl2::event::Event;
 use sdl2::EventPump;
 use sdl2::keyboard::Keycode;
@@ -113,9 +116,11 @@ fn main() {
     ];
 
     //load the game
-    let mut cpu = CPU::new();
-    cpu.load_in(0x0600, game_code);
+    let bus = Bus::new();
+    let mut cpu = CPU::new(bus);
+    cpu.load(game_code);
     cpu.reset();
+    cpu.program_counter = 0x0600;
 
     let mut screen_state = [0 as u8; 32 * 3 * 32];
     let mut rng = rand::thread_rng();
@@ -134,6 +139,6 @@ fn main() {
             canvas.present();
         }
 
-        ::std::thread::sleep(std::time::Duration::new(0, 70_000));
+        ::std::thread::sleep(Duration::new(0, 70_000));
     });
 }
